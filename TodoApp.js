@@ -16,6 +16,10 @@
  * @jsx React.DOM
  */
 
+require('es5-shim');
+require('./node_modules/es5-shim/es5-sham');
+require('json2ify');
+var SockJSClientStream = require('./SockJSClientStream');
 var React = require('react');
 var Swarm = require('swarm');
 var Spec = Swarm.Spec;
@@ -24,6 +28,8 @@ var TodoList = require('./model/TodoList');
 var TodoItem = require('./model/TodoItem');
 
 Swarm.env.debug = true;
+Swarm.env.streams.ws = SockJSClientStream;
+Swarm.env.streams.wss = SockJSClientStream;
 
 var TodoAppView = require('./view/TodoAppView.jsx');
 
@@ -40,7 +46,7 @@ function TodoApp (ssnid, listId) {
 TodoApp.prototype.initSwarm = function () {
     this.storage = null;
     //this.storage = new Swarm.SharedWebStorage();
-    this.wsServerUri = 'ws://'+window.location.host;
+    this.wsServerUri = 'ws://'+window.location.host + '/ws';
     this.host = Swarm.env.localhost = new Swarm.Host(this.ssnid,'',this.storage);
     this.host.connect(this.wsServerUri, {delay: 50});
 };
@@ -59,6 +65,7 @@ TodoApp.prototype.parseUri = function () {
             itemIds.push(id);
         }
     }
+    console.log('PARSED: ' + rootListId + ' ' + itemIds.join('/'));
     if (!rootListId) {
         var list = new TodoList();
         var item = new TodoItem();
@@ -79,8 +86,8 @@ TodoApp.prototype.installListeners = function () {
             case 38: self.up();     break; // up arrow
             case 45: self.toggle(); break; // insert
             case 107:                      // numpad plus
-            case 13: self.create(); break; // enter
-            case 109:self.delete(); break; // numpad minus
+            case 13:  self.create(); break; // enter
+            case 109: self.deleteItem(); break; // numpad minus
             default: return true;
         }
         ev.preventDefault();
@@ -109,10 +116,16 @@ TodoApp.prototype.buildLocationPath = function () {
     for (var i = 0, l = this.path.length; i < l; i++) {
         var state = this.path[i];
         if (i === 0) {
+            if (!state.listId) {
+                break;
+            }
             res.push('/' + state.listId);
         }
-        res.push('/' + state.itemId);
+        if (state.itemId) {
+            res.push('/' + state.itemId);
+        }
     }
+    console.log('buildPath: ' + res.join(''));
     return res.join('');
 };
 
@@ -199,6 +212,7 @@ TodoApp.prototype.forward = function (listId, itemIds) {
         }
 
         var itemId = itemIds.shift();
+        console.log('>>> itemId: ', itemId);
         self.path.push({
             listId: listId,
             itemId: itemId
@@ -208,7 +222,8 @@ TodoApp.prototype.forward = function (listId, itemIds) {
             self.forward(item.childList, itemIds);
             return;
         }
-        window.history.pushState({},"",window.location.origin + self.buildLocationPath());
+        var origin = window.location.protocol + '//' + window.location.host;
+        window.history.pushState({}, "", origin + self.buildLocationPath());
         self.refresh();
         // TODO max delay
     });
@@ -226,7 +241,8 @@ TodoApp.prototype.selectItem = function (itemId) {
     }
     var state = this.path[this.path.length-1];
     state.itemId = itemId;
-    window.history.replaceState({},"",window.location.origin + this.buildLocationPath());
+    var origin = window.location.protocol + '//' + window.location.host;
+    window.history.replaceState({}, "", origin + this.buildLocationPath());
     this.refresh();
 };
 
@@ -265,7 +281,7 @@ TodoApp.prototype.create = function () {
     }
 };
 
-TodoApp.prototype.delete = function (listId, itemId) {
+TodoApp.prototype.deleteItem = function (listId, itemId) {
     var list = this.getList(listId);
     var item = this.getItem(itemId);
     var pos = list.indexOf(item);

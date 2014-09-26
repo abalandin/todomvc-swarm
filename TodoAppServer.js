@@ -5,10 +5,11 @@ var url = require('url');
 var http = require('http');
 
 // WebSockets support
-var ws_lib = require('ws');
+var sockjs = require('sockjs');
 // Express
 var express = require('express');
 var browserify = require('connect-browserify');
+var envify = require('envify');
 var compression = require('compression');
 var jsx_views = require('express-react-views');
 
@@ -19,7 +20,7 @@ nodejsx.install();
 // Swarm
 var Swarm = require('swarm');
 var Spec = Swarm.Spec;
-var EinarosWSStream = Swarm.EinarosWSStream;
+var SockJSStream = Swarm.SockJSStream;
 
 // TodoApp models
 var TodoList = require('./model/TodoList');
@@ -33,6 +34,9 @@ app.use(compression());
 app.use(express.static('.'));
 app.use('/js/bundle.js', browserify({
     entry: './TodoApp.js',
+    transforms: [
+        envify
+    ],
     debug: true
 }));
 
@@ -53,9 +57,12 @@ var runAppJS = '(function(){\n'+
     'window.app = new window.TodoApp(sessionId);\n' +
     '}());';
 
-app.get(/[/+A-Za-z0-9_~]*/, function (req, res) {
-    Spec.reQTokExt.lastIndex = 0;
+app.get(/[/+A-Za-z0-9_~]*/, function (req, res, next) {
     var path = req.path;
+    if (path === '/ws') {
+        next();
+        return;
+    }
     var rootListId = null;
     var itemIds = [];
     var m;
@@ -124,25 +131,26 @@ var fileStorage = new Swarm.FileStorage('.swarm');
 app.swarmHost = new Swarm.Host('swarm~nodejs', 0, fileStorage);
 Swarm.env.localhost = app.swarmHost;
 
-// start the HTTP server
+
+// add WebSocket support to HTTP server
+var sockServer = new sockjs.createServer();
+
+// accept pipes on connection
+sockServer.on('connection', function (ws) {
+    app.swarmHost.accept(new SockJSStream(ws), { delay: 50 });
+});
+
+
+// create the HTTP server
 var httpServer = http.createServer(app);
 
+sockServer.installHandlers(httpServer, {prefix: '/ws'});
+
+// start HTTP server
 httpServer.listen(port, function (err) {
     if (err) {
         console.warn('Can\'t start server. Error: ', err, err.stack);
         return;
     }
     console.log('Swarm server started port', port);
-});
-
-// start WebSocket server
-var wsServer = new ws_lib.Server({
-    server: httpServer
-});
-
-// accept pipes on connection
-wsServer.on('connection', function (ws) {
-    var params = url.parse(ws.upgradeReq.url, true);
-    console.log('incomingWS %s', params.path);
-    app.swarmHost.accept(new EinarosWSStream(ws), { delay: 50 });
 });

@@ -43,7 +43,7 @@ module.exports = window.TodoApp = (function(superclass){
                 case 38: self.up();     break; // up arrow
                 case 45: self.toggle(); break; // insert
                 case 13: self.create(); break; // enter
-                //case 46: self.delete(); break; // delete
+                //case 46: self.deleteItem(); break; // delete
                 default: return true;
             }
             ev.preventDefault();

@@ -101,7 +101,7 @@ var TodoItemView = React.createClass({
     },
 
     _onDestroyClick: function() {
-        app.delete(this.props.UIState.listId, this.sync._id);
+        app.deleteItem(this.props.UIState.listId, this.sync._id);
     }
 
 });

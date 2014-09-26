@@ -28,7 +28,7 @@ var Header = React.createClass({
             <header id="header">
             </header>
         );
-    },
+    }
 
 });
 
