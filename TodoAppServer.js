@@ -20,7 +20,7 @@ nodejsx.install();
 // Swarm
 var Swarm = require('swarm');
 var Spec = Swarm.Spec;
-var SockJSStream = Swarm.SockJSStream;
+var SockJSStream = require('swarm/lib/SockJSServerStream');
 
 // TodoApp models
 var TodoList = require('./model/TodoList');

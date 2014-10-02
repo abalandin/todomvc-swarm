@@ -19,7 +19,7 @@
 require('es5-shim');
 require('./node_modules/es5-shim/es5-sham');
 require('json2ify');
-var SockJSClientStream = require('./SockJSClientStream');
+var SockJSClientStream = require('swarm/lib/SockJSStream');
 var React = require('react');
 var Swarm = require('swarm');
 var Spec = Swarm.Spec;
